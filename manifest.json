@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Smart Save｜自定义网页下载的文件路径",
+  "version": "1.0.0",
+  "description": "任何带有下载按钮的网页，均可由你指定下载后保存的路径，为自己构建一个专属的本地 WorkSpace",
+  "permissions": [
+    "downloads",
+    "storage",
+    "notifications"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

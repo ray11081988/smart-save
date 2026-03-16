@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Save</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Smart Save</h1>
+      <span class="filename" id="filename"></span>
+    </div>
+
+    <!-- 无待处理下载时的提示 -->
+    <div class="empty-state" id="emptyState">
+      <p>当前没有待处理的下载</p>
+    </div>
+
+    <!-- 主面板 -->
+    <div class="main-panel" id="mainPanel" style="display:none;">
+      <!-- 路径列表 -->
+      <div class="section">
+        <div class="section-title">选择保存路径</div>
+        <div class="path-list" id="pathList">
+          <!-- 动态生成 -->
+        </div>
+        <div class="no-paths" id="noPaths">暂无保存路径，请新建一个</div>
+      </div>
+
+      <!-- 选择文件夹 -->
+      <div class="section">
+        <button class="btn btn-browse" id="browseBtn">选择文件夹...</button>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="actions">
+        <button class="btn btn-cancel" id="cancelBtn">取消</button>
+        <button class="btn btn-confirm" id="confirmBtn">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

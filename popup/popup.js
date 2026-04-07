@@ -142,8 +142,29 @@ function renderPathList() {
 
 function shortenPath(fullPath) {
   const parts = fullPath.replace(/\\/g, '/').split('/').filter(Boolean);
-  if (parts.length <= 3) return parts.join('/');
+  if (parts.length <= 3) return fullPath;
   return '.../' + parts.slice(-3).join('/');
+}
+
+// 获取文件夹完整路径
+async function getFullPath(dirHandle) {
+  const pathParts = [];
+  let currentHandle = dirHandle;
+
+  // 向上遍历获取路径
+  while (currentHandle) {
+    pathParts.unshift(currentHandle.name);
+    try {
+      // 尝试获取父目录
+      const parent = await currentHandle.getParent?.();
+      if (!parent) break;
+      currentHandle = parent;
+    } catch {
+      break;
+    }
+  }
+
+  return pathParts.join('/') || dirHandle.name;
 }
 
 // ========== 选择文件夹 ==========
@@ -154,7 +175,9 @@ browseBtn.addEventListener('click', async () => {
 
     // 生成唯一 ID
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    const displayName = dirHandle.name;
+
+    // 获取完整路径
+    const displayName = await getFullPath(dirHandle);
 
     const entry = {
       id,

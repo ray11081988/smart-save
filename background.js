@@ -5,30 +5,34 @@ let pendingSuggest = null;
 
 // 拦截下载
 chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
-  pendingDownload = {
-    id: downloadItem.id,
-    url: downloadItem.url,
-    filename: downloadItem.filename,
-    mime: downloadItem.mime,
-    referrer: downloadItem.referrer
-  };
-  pendingSuggest = suggest;
+  // 获取发起下载的 tab ID
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    pendingDownload = {
+      id: downloadItem.id,
+      url: downloadItem.url,
+      filename: downloadItem.filename,
+      mime: downloadItem.mime,
+      referrer: downloadItem.referrer,
+      tabId: tabs[0]?.id
+    };
+    pendingSuggest = suggest;
 
-  chrome.storage.session.set({ pendingDownload });
+    chrome.storage.session.set({ pendingDownload });
 
-  chrome.action.setBadgeText({ text: '1' });
-  chrome.action.setBadgeBackgroundColor({ color: '#333333' });
+    chrome.action.setBadgeText({ text: '1' });
+    chrome.action.setBadgeBackgroundColor({ color: '#333333' });
 
-  try {
-    chrome.action.openPopup();
-  } catch (e) {
-    chrome.notifications.create('smart-save-notify', {
-      type: 'basic',
-      iconUrl: 'icons/icon128.png',
-      title: 'Smart Save',
-      message: '检测到下载，请点击插件图标选择保存路径'
-    });
-  }
+    try {
+      chrome.action.openPopup();
+    } catch (e) {
+      chrome.notifications.create('smart-save-notify', {
+        type: 'basic',
+        iconUrl: 'icons/icon128.png',
+        title: 'Smart Save',
+        message: '检测到下载，请点击插件图标选择保存路径'
+      });
+    }
+  });
 
   return true;
 });
@@ -102,9 +106,96 @@ function cancelAndCleanup() {
 
 // fetch 文件内容
 async function handleFetchDownload(url, filename) {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const blob = await response.blob();
+  // blob: URL 无法在 Service Worker 中 fetch，需要在原始页面上下文中读取
+  if (url.startsWith('blob:')) {
+    return handleBlobFetch(url, filename);
+  }
+
+  // 普通 HTTP URL：先尝试 Service Worker fetch，失败则回退到页面上下文
+  try {
+    const response = await fetch(url, { credentials: 'include' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    return blobToDataURL(blob, filename);
+  } catch (e) {
+    // 回退：在页面上下文中 fetch（解决跨域/认证问题）
+    return handlePageContextFetch(url, filename);
+  }
+}
+
+// 在原始页面上下文中 fetch blob: URL
+async function handleBlobFetch(blobUrl, filename) {
+  const tabId = pendingDownload?.tabId;
+  if (!tabId) {
+    throw new Error('无法定位下载来源页面');
+  }
+
+  const results = await chrome.scripting.executeScript({
+    target: { tabId },
+    world: 'MAIN',
+    func: async (url) => {
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        return await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve({ data: reader.result, mime: blob.type });
+          reader.onerror = () => resolve({ error: '读取 Blob 数据失败' });
+          reader.readAsDataURL(blob);
+        });
+      } catch (e) {
+        return { error: 'Blob URL 已失效: ' + e.message };
+      }
+    },
+    args: [blobUrl]
+  });
+
+  const result = results?.[0]?.result;
+  if (!result || result.error) {
+    throw new Error(result?.error || 'Blob 数据获取失败');
+  }
+
+  return { data: result.data, mime: result.mime, filename };
+}
+
+// 在页面上下文中 fetch 普通 URL（回退方案）
+async function handlePageContextFetch(url, filename) {
+  const tabId = pendingDownload?.tabId;
+  if (!tabId) {
+    throw new Error('下载失败，无法定位来源页面');
+  }
+
+  const results = await chrome.scripting.executeScript({
+    target: { tabId },
+    world: 'MAIN',
+    func: async (url) => {
+      try {
+        const response = await fetch(url, { credentials: 'include' });
+        if (!response.ok) return { error: `HTTP ${response.status}` };
+        const blob = await response.blob();
+        return await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve({ data: reader.result, mime: blob.type });
+          reader.onerror = () => resolve({ error: '读取失败' });
+          reader.readAsDataURL(blob);
+        });
+      } catch (e) {
+        return { error: e.message };
+      }
+    },
+    args: [url]
+  });
+
+  const result = results?.[0]?.result;
+  if (!result || result.error) {
+    throw new Error(result?.error || '下载失败');
+  }
+
+  return { data: result.data, mime: result.mime, filename };
+}
+
+// Blob 转 DataURL
+function blobToDataURL(blob, filename) {
   const reader = new FileReader();
   return new Promise((resolve, reject) => {
     reader.onload = () => resolve({

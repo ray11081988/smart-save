@@ -5,8 +5,9 @@
 ## 功能特点
 
 - 自动识别网页中的下载/导出操作，弹出路径选择面板
-- 调用系统原生文件夹选择器，选择任意本地目录
-- 历史路径持久化保存，跨网页全局可用
+- 调用系统原生文件夹选择器，选择任意本地目录（包括桌面、下载等一级文件夹）
+- 历史路径持久化保存，跨网页全局可用；存储丢失时支持一键重新绑定
+- 支持 Blob URL 下载（兼容 YouMind 等 SPA 应用的导出功能）
 - 下载完成后系统通知提示
 
 ## 安装方式
@@ -26,23 +27,27 @@
 3. 点击「选择文件夹...」调起系统文件夹选择器，或从历史路径中选择
 4. 点击「确定」，文件直接保存到指定目录
 
+> 如果某个历史路径显示为灰色并出现「重新选择」按钮，说明浏览器权限已过期，点击重新选择同一文件夹即可恢复。
+
 ## 技术栈
 
 - Chrome Extension Manifest V3
 - File System Access API
-- IndexedDB（路径持久化）
+- IndexedDB + 持久化存储（路径持久化）
+- Content Script（MAIN world，Blob URL 缓存）
 
 ## 项目结构
 
 ```
 smart-save/
-├── manifest.json      # 插件配置
-├── background.js      # 下载拦截逻辑
+├── manifest.json        # 插件配置
+├── background.js        # 下载拦截与文件获取逻辑
+├── content-script.js    # 页面注入脚本，缓存 Blob 数据
 ├── popup/
-│   ├── popup.html     # 面板 UI
-│   ├── popup.css      # 样式
-│   └── popup.js       # 交互逻辑
-└── icons/             # 插件图标
+│   ├── popup.html       # 面板 UI
+│   ├── popup.css        # 样式
+│   └── popup.js         # 交互逻辑
+└── icons/               # 插件图标
 ```
 
 ## License

@@ -134,6 +134,15 @@ async function handleBlobFetch(blobUrl, filename) {
     target: { tabId },
     world: 'MAIN',
     func: async (url) => {
+      // 优先从 hook 缓存中取数据（blob 可能已被 revoke）
+      const cache = window.__smartSaveBlobCache__;
+      if (cache && cache[url]) {
+        const cached = cache[url];
+        delete cache[url];
+        return { data: cached.data, mime: cached.mime };
+      }
+
+      // 缓存未命中，尝试直接 fetch（blob 未被 revoke 时可用）
       try {
         const response = await fetch(url);
         const blob = await response.blob();
@@ -144,7 +153,7 @@ async function handleBlobFetch(blobUrl, filename) {
           reader.readAsDataURL(blob);
         });
       } catch (e) {
-        return { error: 'Blob URL 已失效: ' + e.message };
+        return { error: 'Blob 数据获取失败，URL 已失效且无缓存' };
       }
     },
     args: [blobUrl]

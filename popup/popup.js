@@ -15,6 +15,11 @@ let pendingDownload = null;
 
 // 初始化
 document.addEventListener('DOMContentLoaded', async () => {
+  // 申请持久化存储，防止浏览器自动清理 IndexedDB
+  if (navigator.storage && navigator.storage.persist) {
+    await navigator.storage.persist();
+  }
+
   pendingDownload = await sendMessage({ action: 'getPendingDownload' });
 
   if (!pendingDownload) {
@@ -103,7 +108,8 @@ function renderPathList() {
 
   savedPaths.forEach((item) => {
     const div = document.createElement('div');
-    div.className = 'path-item' + (selectedId === item.id ? ' selected' : '');
+    const hasHandle = !!item.handle;
+    div.className = 'path-item' + (selectedId === item.id ? ' selected' : '') + (!hasHandle ? ' no-handle' : '');
 
     const radio = document.createElement('input');
     radio.type = 'radio';
@@ -115,27 +121,50 @@ function renderPathList() {
     span.textContent = shortenPath(item.displayName);
     span.title = item.displayName;
 
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'delete-btn';
-    deleteBtn.textContent = '×';
-    deleteBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await deleteSavedPath(item.id);
-      savedPaths = savedPaths.filter(p => p.id !== item.id);
-      if (selectedId === item.id) {
-        selectedId = savedPaths.length > 0 ? savedPaths[0].id : null;
-      }
-      renderPathList();
-    });
+    // handle 丢失时显示重新授权按钮
+    if (!hasHandle) {
+      const reAuthBtn = document.createElement('button');
+      reAuthBtn.className = 'reauth-btn';
+      reAuthBtn.textContent = '重新选择';
+      reAuthBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+          const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+          item.handle = dirHandle;
+          item.displayName = await getFullPath(dirHandle);
+          await savePath(item);
+          renderPathList();
+        } catch (err) {
+          // 用户取消
+        }
+      });
+      div.appendChild(radio);
+      div.appendChild(span);
+      div.appendChild(reAuthBtn);
+    } else {
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'delete-btn';
+      deleteBtn.textContent = '×';
+      deleteBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await deleteSavedPath(item.id);
+        savedPaths = savedPaths.filter(p => p.id !== item.id);
+        if (selectedId === item.id) {
+          selectedId = savedPaths.length > 0 ? savedPaths[0].id : null;
+        }
+        renderPathList();
+      });
+
+      div.appendChild(radio);
+      div.appendChild(span);
+      div.appendChild(deleteBtn);
+    }
 
     div.addEventListener('click', () => {
       selectedId = item.id;
       renderPathList();
     });
 
-    div.appendChild(radio);
-    div.appendChild(span);
-    div.appendChild(deleteBtn);
     pathList.appendChild(div);
   });
 }
@@ -203,7 +232,11 @@ confirmBtn.addEventListener('click', async () => {
 
   const selected = savedPaths.find(p => p.id === selectedId);
   if (!selected || !selected.handle) {
-    alert('请先选择一个保存路径');
+    if (selected && !selected.handle) {
+      alert('该路径需要重新选择文件夹');
+    } else {
+      alert('请先选择一个保存路径');
+    }
     return;
   }
 

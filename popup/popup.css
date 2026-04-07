@@ -117,6 +117,31 @@ body {
   color: #e44;
 }
 
+.path-item.no-handle {
+  border-color: #e0d0b0;
+  background: #fffdf5;
+}
+
+.path-item.no-handle .path-text {
+  color: #999;
+}
+
+.path-item .reauth-btn {
+  border: 1px solid #bbb;
+  background: #f5f5f5;
+  color: #555;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.path-item .reauth-btn:hover {
+  background: #eee;
+  border-color: #999;
+}
+
 .no-paths {
   text-align: center;
   color: #aaa;
